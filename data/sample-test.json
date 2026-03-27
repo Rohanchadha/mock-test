@@ -1,0 +1,62 @@
+{
+  "test": {
+    "name": "JEE Main Mock #1",
+    "duration_mins": 180
+  },
+  "sections": [
+    {
+      "name": "Physics",
+      "display_order": 1,
+      "questions": [
+        {
+          "type": "SCQ",
+          "text": "A particle moves with velocity $v = 3t^2 - 2t + 1$ m/s. What is the acceleration at $t = 2$ s?",
+          "options": ["$10$ m/s²", "$11$ m/s²", "$12$ m/s²", "$13$ m/s²"],
+          "correct_options": [0]
+        },
+        {
+          "type": "SCQ",
+          "text": "The dimensional formula for gravitational constant $G$ is:",
+          "options": ["$[M^{-1}L^3T^{-2}]$", "$[M^{1}L^3T^{-2}]$", "$[M^{-1}L^2T^{-2}]$", "$[M^{-1}L^3T^{-1}]$"],
+          "correct_options": [0]
+        }
+      ]
+    },
+    {
+      "name": "Chemistry",
+      "display_order": 2,
+      "questions": [
+        {
+          "type": "SCQ",
+          "text": "The equilibrium constant for $\\text{N}_2(g) + 3\\text{H}_2(g) \\rightleftharpoons 2\\text{NH}_3(g)$ is $K_c$. What is the equilibrium constant for $\\frac{1}{2}\\text{N}_2(g) + \\frac{3}{2}\\text{H}_2(g) \\rightleftharpoons \\text{NH}_3(g)$?",
+          "options": ["$K_c$", "$K_c^{1/2}$", "$K_c^2$", "$\\frac{1}{K_c}$"],
+          "correct_options": [1]
+        },
+        {
+          "type": "MCQ",
+          "text": "Which of the following are properties of noble gases?",
+          "options": ["Very low reactivity", "Monoatomic in nature", "High boiling points", "Complete outermost shell"],
+          "correct_options": [0, 1, 3]
+        }
+      ]
+    },
+    {
+      "name": "Maths",
+      "display_order": 3,
+      "questions": [
+        {
+          "type": "SCQ",
+          "text": "If $f(x) = x^3 - 6x^2 + 11x - 6$, then $f(1) + f(2) + f(3)$ equals:",
+          "options": ["$0$", "$1$", "$-1$", "$6$"],
+          "correct_options": [0]
+        },
+        {
+          "type": "SCQ",
+          "text": "The number of solutions of $\\sin^2\\theta + \\cos^2\\theta = 1$ in $[0, 2\\pi]$ is:",
+          "options": ["$0$", "$1$", "Infinitely many", "$2$"],
+          "correct_options": [2]
+        }
+      ]
+    }
+  ]
+}
