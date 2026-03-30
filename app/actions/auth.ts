@@ -81,18 +81,50 @@ export async function verifyOtp(_prevState: unknown, formData: FormData) {
     return { error: 'Invalid or expired code. Check your email and try again.' }
   }
 
-  // OTP verified — upsert user in custom table via admin client
+  // OTP verified — create or update user in custom table via admin client
+  // Email is the verified identity; phone is just a stored attribute
   const adminClient = createAdminClient()
-  const { data: user, error: upsertError } = await adminClient
+
+  // Look up existing user by verified email
+  const { data: existingUser } = await adminClient
     .from('users')
-    .upsert(
-      { phone, name, email },
-      { onConflict: 'phone', ignoreDuplicates: false }
-    )
-    .select()
+    .select('id, phone, name')
+    .eq('email', email)
+    .maybeSingle()
+
+  let userId: string
+
+  if (existingUser) {
+    // Update name and phone in case they changed
+    const { error: updateError } = await adminClient
+      .from('users')
+      .update({ name, phone })
+      .eq('id', existingUser.id)
+    if (updateError) {
+      return { error: 'Something went wrong. Please try again.' }
+    }
+    userId = existingUser.id
+  } else {
+    // First time — create new user
+    const { data: newUser, error: insertError } = await adminClient
+      .from('users')
+      .insert({ phone, name, email })
+      .select('id')
+      .single()
+    if (insertError || !newUser) {
+      return { error: 'Something went wrong. Please try again.' }
+    }
+    userId = newUser.id
+  }
+
+  // Fetch the full user record for session creation
+  const { data: user } = await adminClient
+    .from('users')
+    .select('id, phone, name')
+    .eq('id', userId)
     .single()
 
-  if (upsertError || !user) {
+  if (!user) {
     return { error: 'Something went wrong. Please try again.' }
   }
 
@@ -102,6 +134,8 @@ export async function verifyOtp(_prevState: unknown, formData: FormData) {
 }
 
 export async function logout() {
+  const supabase = await createClient()
+  await supabase.auth.signOut()
   await deleteSession()
   redirect('/')
 }
