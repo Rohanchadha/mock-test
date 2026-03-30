@@ -96,15 +96,31 @@ async function seedTest(filePath: string) {
       type: q.type,
       text: q.text,
       options: q.options,
+      // correct_options removed — stored in question_answers
+    }))
+
+    const { data: insertedQuestions, error: qError } = await supabase
+      .from('questions')
+      .insert(questionsToInsert)
+      .select('id')
+
+    if (qError || !insertedQuestions) {
+      console.error(`❌ Failed to insert questions for "${sec.name}":`, qError?.message)
+      process.exit(1)
+    }
+
+    // Insert answer key into restricted table (service_role bypasses RLS)
+    const questionAnswersToInsert = sec.questions.map((q, idx) => ({
+      question_id: insertedQuestions[idx].id,
       correct_options: q.correct_options,
     }))
 
-    const { error: qError } = await supabase
-      .from('questions')
-      .insert(questionsToInsert)
+    const { error: qaError } = await supabase
+      .from('question_answers')
+      .insert(questionAnswersToInsert)
 
-    if (qError) {
-      console.error(`❌ Failed to insert questions for "${sec.name}":`, qError.message)
+    if (qaError) {
+      console.error(`❌ Failed to insert question_answers for "${sec.name}":`, qaError.message)
       process.exit(1)
     }
   }
