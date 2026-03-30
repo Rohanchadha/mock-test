@@ -1,5 +1,6 @@
 import { getSession } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import type { Test, Section, Question } from '@/lib/types'
 import ExamShell from '@/components/ExamShell'
@@ -34,6 +35,15 @@ export default async function ExamPage({
     .single()
 
   if (!test) redirect('/dashboard')
+
+  // Record exam start time for server-side timer (upsert — refresh does NOT reset clock)
+  const adminClient = createAdminClient()
+  await adminClient
+    .from('exam_sessions')
+    .upsert(
+      { user_id: session.userId, test_id: testId },
+      { onConflict: 'user_id,test_id', ignoreDuplicates: true }
+    )
 
   // Fetch sections
   const { data: sections } = await supabase
