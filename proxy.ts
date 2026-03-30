@@ -5,7 +5,7 @@ import { jwtVerify } from 'jose'
 // Routes accessible without a session
 const PUBLIC_PATHS = new Set(['/', '/verify', '/favicon.ico'])
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   if (PUBLIC_PATHS.has(pathname)) {
