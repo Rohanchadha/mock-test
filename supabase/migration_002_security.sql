@@ -54,13 +54,13 @@ alter table submissions
 -- 4. Drop correct_options from questions
 --    New code reads from question_answers via service_role.
 --    Only run after the app code is deployed.
--- alter table questions drop column if exists correct_options;
+alter table questions drop column if exists correct_options;
 
 -- 5. Remove permissive submissions INSERT policy
 --    New code uses service_role client to insert submissions.
 --    Direct Supabase REST API calls with anon key can no longer insert.
--- drop policy if exists "Anyone can submit" on submissions;
+drop policy if exists "Anyone can submit" on submissions;
 
 -- 6. Remove permissive users INSERT policy
---    New code uses service_role client for login upsert.
--- drop policy if exists "Anyone can create user" on users;
+--    New code uses service_role client for login upsert (Task 12 verifyOtp).
+drop policy if exists "Anyone can create user" on users;
