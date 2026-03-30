@@ -43,9 +43,9 @@ create index if not exists idx_exam_sessions_user_test
   on exam_sessions(user_id, test_id);
 
 -- 4. Unique constraint on submissions to prevent concurrent double-submit
-alter table submissions
-  add constraint if not exists submissions_user_test_unique
-  unique (user_id, test_id);
+--    (CREATE UNIQUE INDEX used because ADD CONSTRAINT has no IF NOT EXISTS in Postgres)
+create unique index if not exists submissions_user_test_unique
+  on submissions(user_id, test_id);
 
 -- ============================================================
 -- PART B — Run AFTER deploying code
