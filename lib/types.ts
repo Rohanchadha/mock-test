@@ -38,7 +38,6 @@ export interface LeaderboardEntry {
   rank: number
   user_id: string
   name: string
-  phone: string
   score: number
   submitted_at: string
 }

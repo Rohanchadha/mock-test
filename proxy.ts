@@ -1,27 +1,35 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { decrypt } from '@/lib/session'
+import { jwtVerify } from 'jose'
 
-const PUBLIC_ROUTES = ['/', '/api/auth/login']
+// Routes accessible without a session
+const PUBLIC_PATHS = new Set(['/', '/verify', '/favicon.ico'])
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Allow public routes
-  if (PUBLIC_ROUTES.includes(pathname)) {
+  if (PUBLIC_PATHS.has(pathname)) {
     return NextResponse.next()
   }
 
-  // Check session cookie
   const token = request.cookies.get('session')?.value
-  const session = await decrypt(token)
 
-  if (!session) {
-    const loginUrl = new URL('/', request.url)
-    return NextResponse.redirect(loginUrl)
+  if (!token) {
+    return NextResponse.redirect(new URL('/', request.url))
   }
 
-  return NextResponse.next()
+  try {
+    const secret = process.env.SESSION_SECRET
+    if (!secret) throw new Error('SESSION_SECRET not configured')
+    const key = new TextEncoder().encode(secret)
+    await jwtVerify(token, key, { algorithms: ['HS256'] })
+    return NextResponse.next()
+  } catch {
+    // Invalid/expired token — clear the cookie and redirect to login
+    const response = NextResponse.redirect(new URL('/', request.url))
+    response.cookies.delete('session')
+    return response
+  }
 }
 
 export const config = {

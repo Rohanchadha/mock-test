@@ -1,5 +1,6 @@
 import { getSession } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import { calcPercentile, scoreSubmission } from '@/lib/scoring'
 import type { Question, Section, Submission } from '@/lib/types'
@@ -37,17 +38,34 @@ export default async function ResultsPage({
   const userIds = [...new Set((allSubmissions ?? []).map((s: Partial<Submission>) => s.user_id!))]
   const { data: users } = await supabase
     .from('users')
-    .select('id, name, phone')
+    .select('id, name')
     .in('id', userIds.length ? userIds : ['none'])
 
-  const usersById: Record<string, { name: string; phone: string }> = {}
+  const usersById: Record<string, { name: string }> = {}
   for (const u of users ?? []) usersById[u.id] = u
 
   // Fetch questions + sections for breakdown
-  const { data: questions } = await supabase
+  const adminClient = createAdminClient()
+
+  const { data: rawQuestions } = await supabase
     .from('questions')
-    .select('id, test_id, section_id, display_order, type, text, options, correct_options')
+    .select('id, test_id, section_id, display_order, type, text, options')
     .eq('test_id', testId)
+
+  // Fetch correct_options from restricted table via service_role
+  const { data: questionAnswers } = await adminClient
+    .from('question_answers')
+    .select('question_id, correct_options')
+    .in('question_id', (rawQuestions ?? []).map((q) => q.id))
+
+  // Merge for scoring
+  const qaMap = new Map(
+    (questionAnswers ?? []).map((qa) => [qa.question_id, qa.correct_options as number[]])
+  )
+  const questions = (rawQuestions ?? []).map((q) => ({
+    ...q,
+    correct_options: qaMap.get(q.id) ?? [],
+  }))
 
   const { data: sections } = await supabase
     .from('sections')
@@ -57,7 +75,7 @@ export default async function ResultsPage({
 
   // Score breakdown per section
   const myAnswers = (mySubmission as Submission).answers ?? {}
-  const allQs = (questions ?? []) as Question[]
+  const allQs = questions as Question[]
   const { breakdown } = scoreSubmission(allQs, myAnswers)
 
   const sectionBreakdown = (sections ?? []).map((sec: Section) => {
