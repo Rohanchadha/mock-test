@@ -3,6 +3,15 @@ import { createClient } from '@/lib/supabase/server'
 import { getSession } from '@/lib/session'
 import { scoreSubmission } from '@/lib/scoring'
 import type { Question } from '@/lib/types'
+import { z } from 'zod'
+
+const submitSchema = z.object({
+  testId: z.string().uuid('testId must be a valid UUID'),
+  answers: z.record(
+    z.string().uuid(),
+    z.array(z.number().int().min(0))
+  ),
+})
 
 export async function POST(request: NextRequest) {
   const session = await getSession()
@@ -10,15 +19,22 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const body = await request.json()
-  const { testId, answers } = body as {
-    testId: string
-    answers: Record<string, number[]>
+  let body: unknown
+  try {
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  if (!testId || !answers) {
-    return NextResponse.json({ error: 'Missing testId or answers' }, { status: 400 })
+  const parsed = submitSchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: parsed.error.issues[0].message },
+      { status: 400 }
+    )
   }
+
+  const { testId, answers } = parsed.data
 
   const supabase = await createClient()
 
