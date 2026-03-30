@@ -40,24 +40,32 @@ export async function POST(request: NextRequest) {
   const adminClient = createAdminClient()
 
   // Check for existing submission (prevent double-submit)
-  const { data: existing } = await supabase
+  const { data: existing, error: existingError } = await supabase
     .from('submissions')
     .select('id')
     .eq('user_id', session.userId)
     .eq('test_id', testId)
     .maybeSingle()
 
+  if (existingError) {
+    return NextResponse.json({ error: 'Failed to check submission status' }, { status: 500 })
+  }
+
   if (existing) {
     return NextResponse.json({ error: 'Already submitted' }, { status: 409 })
   }
 
   // Server-side timer: verify an exam session exists and time hasn't expired
-  const { data: examSession } = await adminClient
+  const { data: examSession, error: sessionError } = await adminClient
     .from('exam_sessions')
     .select('started_at')
     .eq('user_id', session.userId)
     .eq('test_id', testId)
     .maybeSingle()
+
+  if (sessionError) {
+    return NextResponse.json({ error: 'Failed to verify exam session' }, { status: 500 })
+  }
 
   if (!examSession) {
     return NextResponse.json(
@@ -76,6 +84,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Test not found' }, { status: 404 })
   }
 
+  // started_at is timestamptz — Supabase returns ISO 8601 UTC (e.g. "2026-03-30T10:00:00+00:00")
+  // new Date() correctly parses this as UTC; the 60-second grace covers any NTP clock drift
   const elapsedSeconds =
     (Date.now() - new Date(examSession.started_at).getTime()) / 1000
   const allowedSeconds = test.duration_mins * 60 + 60 // 60-second grace period
@@ -116,13 +126,19 @@ export async function POST(request: NextRequest) {
     correct_options: answerMap.get(q.id) ?? [],
   }))
 
-  const { total } = scoreSubmission(questionsWithAnswers as Question[], answers)
+  // Filter answers to only question IDs belonging to this test
+  const validQuestionIds = new Set(questions.map((q) => q.id))
+  const filteredAnswers = Object.fromEntries(
+    Object.entries(answers).filter(([id]) => validQuestionIds.has(id))
+  )
+
+  const { total } = scoreSubmission(questionsWithAnswers as Question[], filteredAnswers)
 
   // Insert using service_role client — does not require anon INSERT policy
   const { error: insertError } = await adminClient.from('submissions').insert({
     user_id: session.userId,
     test_id: testId,
-    answers,
+    answers: filteredAnswers,
     score: total,
   })
 

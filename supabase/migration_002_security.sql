@@ -42,6 +42,10 @@ alter table exam_sessions enable row level security;
 create index if not exists idx_exam_sessions_user_test
   on exam_sessions(user_id, test_id);
 
+-- 4. Unique constraint on submissions to prevent concurrent double-submit
+alter table submissions
+  add constraint if not exists submissions_user_test_unique
+  unique (user_id, test_id);
 
 -- ============================================================
 -- PART B — Run AFTER deploying code
