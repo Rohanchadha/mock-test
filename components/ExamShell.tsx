@@ -33,6 +33,7 @@ export default function ExamShell({ test, sections, questions, userId }: Props) 
   const [showConfirm, setShowConfirm] = useState(false)
   const [warnFired, setWarnFired] = useState(false)
   const submitRef = useRef(false)
+  const answersRef = useRef<Record<string, number[]>>({})
 
   const sectionQuestions = useCallback(
     (sectionId: string) => questions.filter((q) => q.section_id === sectionId),
@@ -50,6 +51,11 @@ export default function ExamShell({ test, sections, questions, userId }: Props) 
       }))
     }
   }, [activeSectionId, sectionQuestions, activeQuestionId])
+
+  // Keep answersRef in sync so the timer callback always sees current answers
+  useEffect(() => {
+    answersRef.current = answers
+  }, [answers])
 
   // Timer
   useEffect(() => {
@@ -170,7 +176,7 @@ export default function ExamShell({ test, sections, questions, userId }: Props) 
       const res = await fetch('/api/test/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ testId: test.id, userId, answers }),
+        body: JSON.stringify({ testId: test.id, userId, answers: answersRef.current }),
       })
       if (!res.ok) throw new Error('Submit failed')
       router.push(`/test/${test.id}/results`)
