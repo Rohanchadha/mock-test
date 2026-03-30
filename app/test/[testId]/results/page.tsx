@@ -37,10 +37,10 @@ export default async function ResultsPage({
   const userIds = [...new Set((allSubmissions ?? []).map((s: Partial<Submission>) => s.user_id!))]
   const { data: users } = await supabase
     .from('users')
-    .select('id, name, phone')
+    .select('id, name')
     .in('id', userIds.length ? userIds : ['none'])
 
-  const usersById: Record<string, { name: string; phone: string }> = {}
+  const usersById: Record<string, { name: string }> = {}
   for (const u of users ?? []) usersById[u.id] = u
 
   // Fetch questions + sections for breakdown
