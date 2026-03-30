@@ -22,7 +22,7 @@ export default async function LoginPage() {
       </div>
 
       <p className="text-xs text-[#CACACA] mt-4">
-        No password needed · Your phone number identifies you
+        A one-time code will be sent to your email
       </p>
     </main>
   )

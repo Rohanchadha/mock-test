@@ -63,3 +63,49 @@ export async function deleteSession() {
   const cookieStore = await cookies()
   cookieStore.delete(SESSION_COOKIE)
 }
+
+// ─── Pending login cookie ──────────────────────────────────────────────────
+// Carries { name, phone, email } between the login form and OTP verify step.
+// Signed with SESSION_SECRET; expires in 15 minutes.
+
+const PENDING_LOGIN_COOKIE = 'pending_login'
+
+export interface PendingLoginPayload {
+  name: string
+  phone: string
+  email: string
+}
+
+export async function createPendingLogin(data: PendingLoginPayload) {
+  const token = await new SignJWT(data as unknown as Record<string, unknown>)
+    .setProtectedHeader({ alg: 'HS256' })
+    .setIssuedAt()
+    .setExpirationTime('15m')
+    .sign(encodedKey)
+
+  const cookieStore = await cookies()
+  cookieStore.set(PENDING_LOGIN_COOKIE, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: 15 * 60,
+    path: '/',
+  })
+}
+
+export async function getPendingLogin(): Promise<PendingLoginPayload | null> {
+  const cookieStore = await cookies()
+  const token = cookieStore.get(PENDING_LOGIN_COOKIE)?.value
+  if (!token) return null
+  try {
+    const { payload } = await jwtVerify(token, encodedKey, { algorithms: ['HS256'] })
+    return payload as unknown as PendingLoginPayload
+  } catch {
+    return null
+  }
+}
+
+export async function deletePendingLogin() {
+  const cookieStore = await cookies()
+  cookieStore.delete(PENDING_LOGIN_COOKIE)
+}
