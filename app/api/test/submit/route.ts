@@ -74,12 +74,15 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const { data: test } = await supabase
+  const { data: test, error: testError } = await supabase
     .from('tests')
     .select('duration_mins')
     .eq('id', testId)
-    .single()
+    .maybeSingle()
 
+  if (testError) {
+    return NextResponse.json({ error: 'Failed to fetch test' }, { status: 500 })
+  }
   if (!test) {
     return NextResponse.json({ error: 'Test not found' }, { status: 404 })
   }
