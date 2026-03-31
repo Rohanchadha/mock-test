@@ -2,7 +2,7 @@ import { getSession } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
-import { calcPercentile, scoreSubmission } from '@/lib/scoring'
+import { scoreSubmission } from '@/lib/scoring'
 import type { Question, Section, Submission } from '@/lib/types'
 import Link from 'next/link'
 
@@ -26,23 +26,6 @@ export default async function ResultsPage({
     .single()
 
   if (!mySubmission) redirect(`/test/${testId}`)
-
-  // Fetch all submissions for leaderboard
-  const { data: allSubmissions } = await supabase
-    .from('submissions')
-    .select('id, user_id, test_id, score, submitted_at')
-    .eq('test_id', testId)
-    .order('score', { ascending: false })
-
-  // Fetch users for leaderboard names
-  const userIds = [...new Set((allSubmissions ?? []).map((s: Partial<Submission>) => s.user_id!))]
-  const { data: users } = await supabase
-    .from('users')
-    .select('id, name')
-    .in('id', userIds.length ? userIds : ['none'])
-
-  const usersById: Record<string, { name: string }> = {}
-  for (const u of users ?? []) usersById[u.id] = u
 
   // Fetch questions + sections for breakdown
   const adminClient = createAdminClient()
@@ -91,13 +74,6 @@ export default async function ResultsPage({
     return { ...sec, correct, incorrect, skipped, sectionScore }
   })
 
-  // Leaderboard + rank
-  const allScores = (allSubmissions ?? []).map((s: Partial<Submission>) => s.score!)
-  const myRank = (allSubmissions ?? []).findIndex(
-    (s: Partial<Submission>) => s.user_id === session.userId
-  ) + 1
-  const myPercentile = calcPercentile((mySubmission as Submission).score, allScores)
-
   // Answer stats
   const totalCorrect = allQs.filter((q) => breakdown[q.id] === 4).length
   const totalIncorrect = allQs.filter((q) => breakdown[q.id] === -1).length
@@ -127,14 +103,12 @@ export default async function ResultsPage({
         </p>
         <div className="flex justify-center gap-8 mt-5">
           {[
-            { val: `#${myRank}`, label: 'Rank' },
-            { val: `${myPercentile}%`, label: 'Percentile' },
             { val: totalCorrect, label: 'Correct', color: 'text-[#00AD33]' },
             { val: totalIncorrect, label: 'Incorrect', color: 'text-red-400' },
             { val: totalSkipped, label: 'Skipped', color: 'text-white/40' },
           ].map(({ val, label, color }) => (
             <div key={label} className="text-center">
-              <p className={`text-xl font-bold ${color ?? 'text-[#00AD33]'}`}>{val}</p>
+              <p className={`text-xl font-bold ${color}`}>{val}</p>
               <p className="text-xs text-white/40 mt-0.5">{label}</p>
             </div>
           ))}
@@ -160,65 +134,6 @@ export default async function ResultsPage({
                 </p>
               </div>
             ))}
-          </div>
-        </div>
-
-        {/* Leaderboard */}
-        <div>
-          <p className="text-xs font-bold uppercase tracking-widest text-[#CACACA] mb-3">
-            Leaderboard — All Submissions
-          </p>
-          <div className="bg-white border border-[#E0E0E0] rounded-sm overflow-hidden">
-            {/* Header row */}
-            <div className="grid grid-cols-[48px_1fr_72px_72px_80px] px-3 py-2 text-xs font-bold uppercase tracking-wide text-[#888] border-b border-[#E0E0E0]">
-              <span>Rank</span>
-              <span>Name</span>
-              <span className="text-right">Score</span>
-              <span className="text-right">Correct</span>
-              <span className="text-right">Percentile</span>
-            </div>
-
-            {(allSubmissions ?? []).map((sub: Partial<Submission>, idx: number) => {
-              const isMe = sub.user_id === session.userId
-              const user = usersById[sub.user_id!]
-              const rank = idx + 1
-              const percentile = calcPercentile(sub.score!, allScores)
-              const rankDisplay = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `${rank}`
-
-              return (
-                <div
-                  key={sub.id}
-                  className={`grid grid-cols-[48px_1fr_72px_72px_80px] px-3 py-3 text-sm border-b border-[#F0F0F0] last:border-0 items-center ${
-                    isMe ? 'bg-[#00AD33]/5 border-l-2 border-l-[#00AD33]' : ''
-                  }`}
-                >
-                  <span className={`font-bold ${rank <= 3 ? 'text-lg' : 'text-[#2F1238]'}`}>
-                    {rankDisplay}
-                  </span>
-                  <span className="text-[#1a1a1a] font-medium flex items-center gap-1.5">
-                    {user?.name ?? 'Unknown'}
-                    {isMe && (
-                      <span className="text-xs bg-[#00AD33] text-white rounded px-1.5 py-0.5">
-                        You
-                      </span>
-                    )}
-                  </span>
-                  <span className={`text-right font-bold ${isMe ? 'text-[#00AD33]' : 'text-[#2F1238]'}`}>
-                    {sub.score}
-                  </span>
-                  <span className="text-right text-xs text-[#00AD33]">
-                    {allQs.length > 0
-                      ? Math.round(((sub.score! + allQs.length) / (allQs.length * 5)) * allQs.length)
-                      : '—'}
-                  </span>
-                  <span className="text-right text-xs text-[#888]">{percentile}%</span>
-                </div>
-              )
-            })}
-
-            <div className="px-3 py-2 text-xs text-[#CACACA] text-center border-t border-[#F0F0F0]">
-              {(allSubmissions ?? []).length} submission{(allSubmissions ?? []).length !== 1 ? 's' : ''} · Updates as more students submit
-            </div>
           </div>
         </div>
 
