@@ -2,8 +2,9 @@ import { getSession } from '@/lib/session'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
-import type { Test, Section, Question } from '@/lib/types'
+import type { Test, Section, Question, QuestionStatus } from '@/lib/types'
 import ExamShell from '@/components/ExamShell'
+import { autoSubmitIfExpired } from '@/lib/auto-submit'
 
 export default async function ExamPage({
   params,
@@ -45,6 +46,34 @@ export default async function ExamPage({
       { onConflict: 'user_id,test_id', ignoreDuplicates: true }
     )
 
+  // Fetch exam session to calculate remaining time
+  const { data: examSession } = await adminClient
+    .from('exam_sessions')
+    .select('started_at')
+    .eq('user_id', session.userId)
+    .eq('test_id', testId)
+    .single()
+
+  const elapsedSeconds = examSession
+    ? (Date.now() - new Date(examSession.started_at).getTime()) / 1000
+    : 0
+  const totalSeconds = (test as Test).duration_mins * 60
+  const remainingSeconds = Math.max(0, Math.floor(totalSeconds - elapsedSeconds))
+
+  // If time has expired, auto-submit with whatever progress exists and redirect
+  if (remainingSeconds === 0) {
+    await autoSubmitIfExpired(session.userId, testId)
+    redirect(`/test/${testId}/results`)
+  }
+
+  // Fetch saved progress (if resuming)
+  const { data: progress } = await adminClient
+    .from('exam_progress')
+    .select('answers, statuses, active_section_id, active_question_id')
+    .eq('user_id', session.userId)
+    .eq('test_id', testId)
+    .maybeSingle()
+
   // Fetch sections
   const { data: sections } = await supabase
     .from('sections')
@@ -65,6 +94,11 @@ export default async function ExamPage({
       sections={(sections ?? []) as Section[]}
       questions={(questions ?? []) as Omit<Question, 'correct_options'>[]}
       userId={session.userId}
+      initialAnswers={progress?.answers as Record<string, number[]> | undefined}
+      initialStatuses={progress?.statuses as Record<string, QuestionStatus> | undefined}
+      initialSectionId={progress?.active_section_id as string | undefined}
+      initialQuestionId={progress?.active_question_id as string | undefined}
+      initialSecondsLeft={remainingSeconds}
     />
   )
 }

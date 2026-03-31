@@ -4,10 +4,14 @@ import { redirect } from 'next/navigation'
 import type { Test, Section, Submission } from '@/lib/types'
 import LogoutButton from '@/components/LogoutButton'
 import Link from 'next/link'
+import { autoSubmitExpiredExams } from '@/lib/auto-submit'
 
 export default async function DashboardPage() {
   const session = await getSession()
   if (!session) redirect('/')
+
+  // Auto-submit any expired exams before rendering the dashboard
+  await autoSubmitExpiredExams(session.userId)
 
   const supabase = await createClient()
 

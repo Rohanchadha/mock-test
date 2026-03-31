@@ -20,21 +20,31 @@ interface Props {
   sections: Section[]
   questions: QuestionClient[]
   userId: string
+  initialAnswers?: Record<string, number[]>
+  initialStatuses?: Record<string, QuestionStatus>
+  initialSectionId?: string
+  initialQuestionId?: string
+  initialSecondsLeft?: number
 }
 
-export default function ExamShell({ test, sections, questions, userId }: Props) {
+export default function ExamShell({ test, sections, questions, userId, initialAnswers, initialStatuses, initialSectionId, initialQuestionId, initialSecondsLeft }: Props) {
   const router = useRouter()
-  const [activeSectionId, setActiveSectionId] = useState(sections[0]?.id ?? '')
-  const [activeQuestionId, setActiveQuestionId] = useState<string>('')
-  const [answers, setAnswers] = useState<Record<string, number[]>>({})
-  const [statuses, setStatuses] = useState<Record<string, QuestionStatus>>({})
-  const [secondsLeft, setSecondsLeft] = useState(test.duration_mins * 60)
+  const [activeSectionId, setActiveSectionId] = useState(initialSectionId ?? sections[0]?.id ?? '')
+  const [activeQuestionId, setActiveQuestionId] = useState<string>(initialQuestionId ?? '')
+  const [answers, setAnswers] = useState<Record<string, number[]>>(initialAnswers ?? {})
+  const [statuses, setStatuses] = useState<Record<string, QuestionStatus>>(initialStatuses ?? {})
+  const [secondsLeft, setSecondsLeft] = useState(initialSecondsLeft ?? test.duration_mins * 60)
   const [submitting, setSubmitting] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const [warnFired, setWarnFired] = useState(false)
   const [showNav, setShowNav] = useState(false)
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
   const submitRef = useRef(false)
-  const answersRef = useRef<Record<string, number[]>>({})
+  const answersRef = useRef<Record<string, number[]>>(initialAnswers ?? {})
+  const statusesRef = useRef<Record<string, QuestionStatus>>(initialStatuses ?? {})
+  const lastSavedJsonRef = useRef<string>(JSON.stringify(initialAnswers ?? {}))
+  const activeSectionRef = useRef(initialSectionId ?? sections[0]?.id ?? '')
+  const activeQuestionRef = useRef(initialQuestionId ?? '')
 
   const sectionQuestions = useCallback(
     (sectionId: string) => questions.filter((q) => q.section_id === sectionId),
@@ -53,10 +63,82 @@ export default function ExamShell({ test, sections, questions, userId }: Props) 
     }
   }, [activeSectionId, sectionQuestions, activeQuestionId])
 
-  // Keep answersRef in sync so the timer callback always sees current answers
+  // Keep refs in sync so callbacks always see current state
   useEffect(() => {
     answersRef.current = answers
   }, [answers])
+  useEffect(() => {
+    statusesRef.current = statuses
+  }, [statuses])
+  useEffect(() => {
+    activeSectionRef.current = activeSectionId
+  }, [activeSectionId])
+  useEffect(() => {
+    activeQuestionRef.current = activeQuestionId
+  }, [activeQuestionId])
+
+  // --- Auto-save logic ---
+  const buildSavePayload = useCallback(() => {
+    return JSON.stringify({
+      testId: test.id,
+      answers: answersRef.current,
+      statuses: statusesRef.current,
+      activeSectionId: activeSectionRef.current || undefined,
+      activeQuestionId: activeQuestionRef.current || undefined,
+    })
+  }, [test.id])
+
+  const doSave = useCallback(async () => {
+    if (submitRef.current) return
+    const currentJson = JSON.stringify(answersRef.current)
+    if (currentJson === lastSavedJsonRef.current) return
+    lastSavedJsonRef.current = currentJson
+    setSaveStatus('saving')
+    try {
+      await fetch('/api/test/save-progress', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: buildSavePayload(),
+      })
+      setSaveStatus('saved')
+      setTimeout(() => setSaveStatus((s) => (s === 'saved' ? 'idle' : s)), 2000)
+    } catch {
+      setSaveStatus('idle')
+    }
+  }, [buildSavePayload])
+
+  // Auto-save every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      doSave()
+    }, 30_000)
+    return () => clearInterval(interval)
+  }, [doSave])
+
+  // Save on tab visibility change (user switches tab / minimizes)
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'hidden' && !submitRef.current) {
+        doSave()
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => document.removeEventListener('visibilitychange', handleVisibility)
+  }, [doSave])
+
+  // Save on tab close / navigation away via sendBeacon
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (submitRef.current) return
+      const payload = buildSavePayload()
+      navigator.sendBeacon(
+        '/api/test/save-progress',
+        new Blob([payload], { type: 'text/plain' })
+      )
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [buildSavePayload])
 
   // Timer
   useEffect(() => {
@@ -211,15 +293,23 @@ export default function ExamShell({ test, sections, questions, userId }: Props) 
           <img src="/logo.svg" alt="Shiksha" width={24} height={24} />
           <span className="text-white font-bold text-sm">{test.name}</span>
         </div>
-        <span
-          className={`font-mono text-lg font-bold px-3 py-1 rounded border ${
-            secondsLeft <= 300
-              ? 'text-red-400 border-red-400/40 bg-red-400/10'
-              : 'text-white border-white/20 bg-white/10'
-          }`}
-        >
-          {formatTime(secondsLeft)}
-        </span>
+        <div className="flex items-center gap-2">
+          <span
+            className={`font-mono text-lg font-bold px-3 py-1 rounded border ${
+              secondsLeft <= 300
+                ? 'text-red-400 border-red-400/40 bg-red-400/10'
+                : 'text-white border-white/20 bg-white/10'
+            }`}
+          >
+            {formatTime(secondsLeft)}
+          </span>
+          {saveStatus === 'saving' && (
+            <span className="text-white/40 text-xs">Saving...</span>
+          )}
+          {saveStatus === 'saved' && (
+            <span className="text-green-400/70 text-xs">Saved</span>
+          )}
+        </div>
         <button
           onClick={() => setShowNav(true)}
           className="md:hidden text-white/80 hover:text-white p-1 rounded transition-colors"

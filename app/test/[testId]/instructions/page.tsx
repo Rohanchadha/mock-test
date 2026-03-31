@@ -127,7 +127,7 @@ export default async function InstructionsPage({
               </li>
               <li className="flex gap-2">
                 <span className="text-[#2F1238] font-bold mt-0.5">7.</span>
-                <span>Do not refresh the page mid-test. Your answers are saved in memory and a refresh will not reset the timer, but unsaved answers may be lost.</span>
+                <span>Your answers are automatically saved every 30 seconds. If you lose connection or close the browser, you can resume where you left off by revisiting the test link.</span>
               </li>
             </ul>
           </div>

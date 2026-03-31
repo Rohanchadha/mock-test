@@ -149,5 +149,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to save submission' }, { status: 500 })
   }
 
+  // Clean up saved progress (if any)
+  await adminClient
+    .from('exam_progress')
+    .delete()
+    .eq('user_id', session.userId)
+    .eq('test_id', testId)
+
   return NextResponse.json({ score: total })
 }
