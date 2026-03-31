@@ -32,6 +32,7 @@ export default function ExamShell({ test, sections, questions, userId }: Props) 
   const [submitting, setSubmitting] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const [warnFired, setWarnFired] = useState(false)
+  const [showNav, setShowNav] = useState(false)
   const submitRef = useRef(false)
   const answersRef = useRef<Record<string, number[]>>({})
 
@@ -219,6 +220,18 @@ export default function ExamShell({ test, sections, questions, userId }: Props) 
         >
           {formatTime(secondsLeft)}
         </span>
+        <button
+          onClick={() => setShowNav(true)}
+          className="md:hidden text-white/80 hover:text-white p-1 rounded transition-colors"
+          aria-label="Open question panel"
+        >
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="2" y="2" width="7" height="7" rx="1" />
+            <rect x="11" y="2" width="7" height="7" rx="1" />
+            <rect x="2" y="11" width="7" height="7" rx="1" />
+            <rect x="11" y="11" width="7" height="7" rx="1" />
+          </svg>
+        </button>
         <span className="text-white/60 text-xs hidden sm:block">
           {/* placeholder for user name */}
         </span>
@@ -336,8 +349,33 @@ export default function ExamShell({ test, sections, questions, userId }: Props) 
           )}
         </div>
 
-        {/* Right: navigator */}
-        <div className="w-60 border-l border-[#E0E0E0] bg-white flex flex-col p-4 overflow-y-auto flex-shrink-0">
+        {/* Mobile backdrop */}
+        {showNav && (
+          <div
+            className="fixed inset-0 bg-black/40 z-30 md:hidden"
+            onClick={() => setShowNav(false)}
+          />
+        )}
+
+        {/* Right: navigator — overlay on mobile, static on desktop */}
+        <div className={`
+          fixed inset-y-0 right-0 z-40 w-72 transition-transform duration-300
+          ${showNav ? 'translate-x-0' : 'translate-x-full'}
+          md:relative md:inset-auto md:z-auto md:w-60 md:translate-x-0
+          border-l border-[#E0E0E0] bg-white flex flex-col p-4 overflow-y-auto flex-shrink-0
+        `}>
+          {/* Close button (mobile only) */}
+          <button
+            onClick={() => setShowNav(false)}
+            className="md:hidden self-end mb-3 text-[#888] hover:text-[#2F1238] transition-colors"
+            aria-label="Close panel"
+          >
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <line x1="2" y1="2" x2="16" y2="16" />
+              <line x1="16" y1="2" x2="2" y2="16" />
+            </svg>
+          </button>
+
           {/* Scoring */}
           <div className="bg-[#00AD33]/6 border border-[#00AD33]/20 rounded p-2.5 text-xs text-[#555] mb-4">
             ✅ Correct: <strong>+4</strong> &nbsp;·&nbsp; ❌ Wrong: <strong>−1</strong> &nbsp;·&nbsp; ⬜ Skip: <strong>0</strong>

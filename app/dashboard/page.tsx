@@ -101,7 +101,7 @@ export default async function DashboardPage() {
                   </Link>
                 ) : (
                   <Link
-                    href={`/test/${test.id}`}
+                    href={`/test/${test.id}/instructions`}
                     className="bg-[#00AD33] text-white text-xs font-semibold rounded-full px-4 py-2 whitespace-nowrap hover:bg-[#009929] transition-colors"
                   >
                     Start →

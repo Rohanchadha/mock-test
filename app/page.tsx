@@ -21,9 +21,6 @@ export default async function LoginPage() {
         <LoginForm />
       </div>
 
-      <p className="text-xs text-[#CACACA] mt-4">
-        A one-time code will be sent to your email
-      </p>
     </main>
   )
 }
